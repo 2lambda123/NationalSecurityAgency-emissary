@@ -86,7 +86,7 @@ class KeywordScannerTest extends UnitTest {
     void testCaseInsensitiveFound() {
         this.ks.setCaseSensitive(false);
         assertFalse(this.ks.isCaseSensitive());
-        assertEquals(10, this.ks.indexOf("TeST".getBytes()), "Case insensitive");
+        assertEquals(10, this.ks.indexOf("TEST".getBytes()), "Case insensitive");
     }
 
     @Test

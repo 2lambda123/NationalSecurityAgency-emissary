@@ -179,7 +179,10 @@ public class KeywordScanner {
             this.skip[i] = this.patternLength;
         }
         for (int i = 0; i < this.patternLength - 1; i++) {
-            this.skip[get256Value(this.pattern[i])] = this.patternLength - i - 1;
+            int charValue = get256Value(this.pattern[i]);
+            if (!this.caseSensitive)
+                charValue = lowercase(charValue);
+            this.skip[charValue] = this.patternLength - i - 1;
         }
         this.lastByte = get256Value(this.pattern[this.patternLength - 1]);
     }
