@@ -1186,10 +1186,6 @@ public class DirectoryPlace extends ServiceProviderPlace implements IRemoteDirec
      */
     @Override
     public int irdRemovePlaces(@Nullable final List<String> keys, final boolean propagating) {
-        if (this.emissaryNode.isStandalone()) {
-            logger.debug("Cannot remove remote places in standalone nodes");
-            return 0;
-        }
 
         if ((keys == null) || keys.isEmpty()) {
             logger.warn("Ignoring null or empty key list for irdRemovePlaces");

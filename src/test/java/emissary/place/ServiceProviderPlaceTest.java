@@ -5,6 +5,7 @@ import emissary.core.BaseDataObject;
 import emissary.core.EmissaryException;
 import emissary.core.IBaseDataObject;
 import emissary.core.Namespace;
+import emissary.core.NamespaceException;
 import emissary.directory.DirectoryEntry;
 import emissary.directory.KeyManipulator;
 import emissary.test.core.junit5.UnitTest;
@@ -24,6 +25,7 @@ import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -550,6 +552,53 @@ class ServiceProviderPlaceTest extends UnitTest {
         } catch (IOException iox) {
             fail("Place should have configured with SERVICE_KEY", iox);
         }
+    }
+
+    private static final byte[] cfgData = ("SERVICE_KEY = \"UNKNOWN.TEST_PLACE.ID.http://localhost:8001/PlaceTest$6050\"\n" +
+            "KEY_1 = 200").getBytes();
+    private static final byte[] cfgDataReload = ("SERVICE_KEY = \"*.TEST_PLACE.ID.http://localhost:8001/PlaceTest$5060\"\n" +
+            "KEY_1 = 300").getBytes();
+
+    @Test
+    void refreshConfigurator() throws IOException {
+        PlaceTest placeTest = new PlaceTest(new ByteArrayInputStream(cfgData));
+        assertNotNull(placeTest, "Place created and configured");
+        assertEquals("PlaceTest", placeTest.getPlaceName(), "Configured place name");
+        assertEquals("UNKNOWN", placeTest.getPrimaryProxy(), "Primary proxy");
+        assertEquals("UNKNOWN.TEST_PLACE.ID.http://localhost:8001/PlaceTest", placeTest.getKey(), "Key generation");
+        DirectoryEntry de = placeTest.getDirectoryEntry();
+        assertNotNull(de, "Directory entry");
+        assertEquals(60, de.getCost(), "Cost in directory entry");
+        assertEquals(50, de.getQuality(), "Quality in directory entry");
+        assertEquals("Description not available", de.getDescription(), "Description in directory entry");
+        assertNotNull(placeTest.configG);
+        assertEquals(200, placeTest.configG.findIntEntry("KEY_1", 0));
+        assertDoesNotThrow(() -> Namespace.lookup("http://localhost:8001/PlaceTest"));
+
+        placeTest.refresh(new ByteArrayInputStream(cfgDataReload));
+        assertNotNull(placeTest, "Place created and configured");
+        assertEquals("PlaceTest", placeTest.getPlaceName(), "Configured place name");
+        assertEquals("*", placeTest.getPrimaryProxy(), "Primary proxy");
+        assertEquals("*.TEST_PLACE.ID.http://localhost:8001/PlaceTest", placeTest.getKey(), "Key generation");
+        de = placeTest.getDirectoryEntry();
+        assertNotNull(de, "Directory entry");
+        assertEquals(50, de.getCost(), "Cost in directory entry");
+        assertEquals(40, de.getQuality(), "Quality in directory entry");
+        assertEquals("Description not available", de.getDescription(), "Description in directory entry");
+        assertNotNull(placeTest.configG);
+        assertEquals(300, placeTest.configG.findIntEntry("KEY_1", 0));
+        assertDoesNotThrow(() -> Namespace.lookup("http://localhost:8001/PlaceTest"));
+    }
+
+    @Test
+    void testClearKeys() throws IOException {
+        PlaceTest placeTest = new PlaceTest(new ByteArrayInputStream(cfgData));
+        assertFalse(placeTest.keys.isEmpty());
+        assertDoesNotThrow(() -> Namespace.lookup("http://localhost:8001/PlaceTest"));
+
+        placeTest.clearKeys();
+        assertTrue(placeTest.keys.isEmpty());
+        assertThrows(NamespaceException.class, () -> Namespace.lookup("http://localhost:8001/PlaceTest"));
     }
 
     private static final class PlaceTest extends ServiceProviderPlace {
