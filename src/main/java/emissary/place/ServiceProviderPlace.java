@@ -27,6 +27,7 @@ import emissary.server.mvc.adapters.DirectoryAdapter;
 import emissary.util.JMXUtil;
 
 import com.codahale.metrics.Timer;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -109,6 +110,9 @@ public abstract class ServiceProviderPlace implements IServiceProviderPlace,
      */
     @Nullable
     protected String serviceDescription;
+
+    private String placeLocation;
+    private final List<String> configLocs = new ArrayList<>();
 
     /**
      * Static context logger
@@ -253,12 +257,11 @@ public abstract class ServiceProviderPlace implements IServiceProviderPlace,
         if (placeLocation == null) {
             placeLocation = this.getClass().getSimpleName();
         }
-
+        this.placeLocation = placeLocation;
         // Extract config data stream name from place location
         // and try finding config info with and without the
         // package name of this class (in that order)
         String myPackage = this.getClass().getPackage().getName();
-        List<String> configLocs = new ArrayList<>();
         // Dont use KeyManipulator for this, only works when hostname/fqdn has dots
         int pos = placeLocation.lastIndexOf("/");
         String serviceClass = (pos > -1 ? placeLocation.substring(pos + 1) : placeLocation);
@@ -925,6 +928,72 @@ public abstract class ServiceProviderPlace implements IServiceProviderPlace,
         }
     }
 
+    /**
+     * Reset the keys and reload the {@link Configurator}
+     *
+     * @throws IOException if there is an issue loading the config
+     */
+    protected void refresh() throws IOException {
+        clearKeys();
+        this.configG = refreshConfigurator();
+        setupPlace(this.dirPlace, this.placeLocation);
+    }
+
+    /**
+     * Reset the keys and reload the {@link Configurator}
+     *
+     * @param configStream the configuration input stream to load
+     * @throws IOException if there is an issue loading the config
+     */
+    protected void refresh(@Nullable final InputStream configStream) throws IOException {
+        clearKeys();
+        this.configG = refreshConfigurator(configStream);
+        setupPlace(this.dirPlace, this.placeLocation);
+    }
+
+    /**
+     * Reload the {@link Configurator}
+     *
+     * @throws IOException if there is an issue loading the config
+     */
+    protected Configurator refreshConfigurator() throws IOException {
+        return refreshConfigurator(this.configLocs);
+    }
+
+    /**
+     * Reload the {@link Configurator}
+     *
+     * @param configLocations the list of configuration files to load
+     * @throws IOException if there is an issue loading the config
+     */
+    protected Configurator refreshConfigurator(@Nullable final List<String> configLocations) throws IOException {
+        if (CollectionUtils.isNotEmpty(configLocations)) {
+            return ConfigUtil.getConfigInfo(configLocations);
+        }
+        throw new IOException("No config locations specified");
+    }
+
+    /**
+     * Reload the {@link Configurator}
+     *
+     * @param configStream the stream of configuration data
+     * @throws IOException if there is an issue loading the config
+     */
+    protected Configurator refreshConfigurator(@Nullable final InputStream configStream) throws IOException {
+        if (configStream != null) {
+            return ConfigUtil.getConfigInfo(configStream);
+        }
+        throw new IOException("Null config stream supplied");
+    }
+
+    /**
+     * Unbind from the namespace and clear all loaded keys
+     */
+    protected void clearKeys() {
+        unbindFromNamespace();
+        new ArrayList<>(this.keys).forEach(this::removeKey);
+        this.keys.clear();
+    }
 
     /**
      * Remove a service proxy from the running place. Proxy strings not found registered will be ignored Will remove all
